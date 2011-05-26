@@ -1,0 +1,358 @@
+<!--
+To change this template, choose Tools | Templates
+and open the template in the editor.
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <title></title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script type="text/javascript">
+        var started=false;
+        var paused=false;
+        var go=false;
+
+        var food=new Array(2);
+        var foodPresent=false;
+        var foodPart;
+
+        var sw;
+        var score=0;
+
+        var pw;
+
+        var X=0;
+        var Y=1;
+
+        var mouseX;
+        var mouseY;
+
+        var border=10;
+        var fieldSize;
+        var fieldTilesX=30;
+        var fieldTilesY=20;
+
+        var gameDiv;
+
+        var width=0;
+        var height=0;
+
+        var grid;
+
+        var DIR_UP=119;
+        var DIR_RIGHT=100;
+        var DIR_DOWN=115;
+        var DIR_LEFT=97;
+
+        var snake=new Array();
+        var snakeParts=new Array();
+        var snakeDir=DIR_DOWN;
+
+        function initWindows() {
+            initGameWindow();
+            initScoreWindow();
+            initPosWindow();
+            initPromtWindow();
+            init_mousemove();
+        }
+        function initPromtWindow() {
+            var bg=document.getElementById("prbg");
+            var prdiv=document.getElementById("prdiv");
+            var pr=document.getElementById("promt");
+            bg.style.position="absolute";
+            bg.style.top="0px";
+            bg.style.left="0px";
+            bg.style.zIndex=2;
+            bg.style.width="100%";
+            bg.style.height=window.innerHeight;
+
+            bg.style.backgroundColor="#777777";
+            bg.style.opacity="0.3";
+
+            prdiv.style.zIndex=3;
+            center(prdiv);
+
+            pr.style.color="#000000";
+            pr.style.opacity="1";
+
+            bg.onclick=function() {
+                bg.style.display="none";
+                prdiv.style.display="none";
+            }
+        }
+        function initGameWindow() {
+            if(window.innerHeight<=window.innerWidth){
+                fieldSize=parseInt((window.innerHeight-2*border)/fieldTilesY);
+            }else{
+                fieldSize=parseInt((window.innerWidth-2*border)/fieldTilesX);
+            }
+            var gw=document.getElementById("gamediv");
+            gw.style.position="absolute";
+            gw.style.top="0px";
+            gw.style.left="0px";
+            gw.style.zIndex=1;
+            width=fieldTilesX*fieldSize;
+            gw.style.width=width;
+            height=fieldTilesY*fieldSize;
+            gw.style.height=height;
+            gw.style.backgroundColor="#cccccc";
+            gw.style.borderStyle="solid";
+            gw.style.borderWidth=border;
+            gw.style.borderColor="#000000";
+        }
+        function initScoreWindow(){
+            var gw=document.getElementById("gamediv");
+            sw=document.createElement("DIV");
+            sw.style.position="absolute";
+            sw.style.top=border;
+            sw.style.left=border;
+            sw.style.opacity="0.5";
+            updateSw();
+            gw.appendChild(sw);
+        }
+        function initPosWindow(){
+            var gw=document.getElementById("gamediv");
+            pw=document.createElement("DIV");
+            pw.style.position="absolute";
+            pw.style.top=border;
+            pw.style.right=border;
+            pw.style.opacity="0.5";
+            gw.appendChild(pw);
+        }
+        function updateSw(){
+            sw.innerHTML=("Score: " + score);
+        }
+        function updatePw(){
+            if(snake.length>0){
+                pw.innerHTML=("X:" + snake[0][X] + " Y:" + snake[0][Y]);
+            }
+        }
+        function center(element) {
+            element.style.position="absolute";
+            element.style.top="50%";
+            element.style.left="50%";
+        }
+        function showPromt(text) {
+            var pro=document.getElementById("prbg");
+            var prdiv=document.getElementById("prdiv");
+            var pr=document.getElementById("promt");
+            pr.innerHTML=text;
+            center(prdiv);
+            pro.style.display="block";
+            prdiv.style.display="block";
+        }
+        function clicked() {
+            if(started) {
+                if(!paused) {
+                    showPromt("PAUSED...CLICK TO CONTINUE");
+                    paused=true;
+                } else {
+                    paused=false;
+                    proceedGame();
+                }
+            } else {
+                startGame();
+            }
+        }
+        function resetgb(){
+           if(!snake||!gameDiv){
+               return;
+           }
+           for(i=0;i<snakeParts.length;i++){
+              gameDiv.removeChild(snakeParts[i]);
+           }
+           snake=new Array();
+           snakeParts=new Array();
+           snakeDir=DIR_DOWN;
+           gameDiv.removeChild(foodPart);
+           foodPresent=false;
+           //initWindows();
+        }
+        function startGame() {
+            started=true;
+            go=false;
+            pause=false;
+            score=0;
+            updateSw();
+            gameDiv=document.getElementById("gamediv");
+            foodPart=getFoodPart();
+            gameDiv.appendChild(foodPart);
+            snake[0]=new Array(parseInt(fieldTilesX/2), parseInt(fieldTilesY/2));
+            snake[1]=new Array(parseInt(fieldTilesX/2), parseInt(fieldTilesY/2-1));
+            snake[2]=new Array(parseInt(fieldTilesX/2), parseInt(fieldTilesY/2-2));
+            snake[3]=new Array(parseInt(fieldTilesX/2), parseInt(fieldTilesY/2-3));
+            proceedGame();
+        }
+        function proceedGame() {
+            if(go){
+                started=false;
+                resetgb();
+                showPromt("Game over");
+            }
+            if(!paused&&!go) {
+                move();
+                proccessFood();
+                render();
+                setTimeout("proceedGame()",100);
+            }
+        }
+        function render(){
+            if(snakeParts.length<snake.length) {
+                for(i=snakeParts.length;i<snake.length;i++) {
+                    snakeParts[i]=getSnakePart();
+                    gameDiv.appendChild(snakeParts[i]);
+                }
+            }
+            for(i=0;i<snake.length;i++) {
+                snakeParts[i].style.left=snake[i][X]*fieldSize;
+                snakeParts[i].style.top=snake[i][Y]*fieldSize;
+
+            }
+            if(foodPresent){
+                foodPart.style.left=food[X]*fieldSize;
+                foodPart.style.top=food[Y]*fieldSize;
+                showFood();
+            }
+        }
+        function move() {
+            var lastX=snake[0][X];
+            var lastY=snake[0][Y];
+            for(i=(snake.length-1);i>0;i--){
+                snake[i][X]=snake[(i-1)][X];
+                snake[i][Y]=snake[(i-1)][Y];
+            }
+            if(snakeDir==DIR_DOWN) {
+                if(snake[0][Y]<fieldTilesY-1){
+                    snake[0][Y]=(snake[0][Y]+1);
+                }
+                else {
+                    snake[0][Y]=0;
+                }
+            } else if(snakeDir==DIR_LEFT) {
+                if(snake[0][X]>0){
+                    snake[0][X]=snake[0][X]-1;
+                }
+                else {
+                    snake[0][X]=fieldTilesX-1;
+                }
+            } else if(snakeDir==DIR_UP) {
+                if(snake[0][Y]>0){
+                    snake[0][Y]=(snake[0][Y]-1);
+                }
+                else {
+                    snake[0][Y]=fieldTilesY-1;
+                }
+            } else if(snakeDir==DIR_RIGHT) {
+                if(snake[0][X]<fieldTilesX-1){
+                    snake[0][X]=snake[0][X]+1;
+                }
+                else {
+                    snake[0][X]=0;
+                }
+            }
+            if(snake[0][X]==food[X]&&snake[0][Y]==food[Y]) {
+                snake[snake.length]=new Array(2);
+                snake[snake.length-1][X]=lastX;
+                snake[snake.length-1][Y]=lastY;
+                score++;
+                updateSw();
+                hideFood();
+                foodPresent=false;
+            }
+            for(i=1;i<snake.length-1;i++) {
+                if(snake[0][X]==snake[i][X]&&snake[0][Y]==snake[i][Y]) {
+                    go=true;
+                }
+            }
+            updatePw();
+        }
+        function proccessFood() {
+            if(!foodPresent) {
+                var fX;
+                var fY;
+                var con=true;
+                while(con) {
+                    con=false;
+                    fX=parseInt(Math.random()*fieldTilesX);
+                    fY=parseInt(Math.random()*fieldTilesY);
+                    for(i=0;i<snake.length;i++) {
+                        if(snake[i][X]==fX&&snake[i][Y]==fY) {
+                            con=true;
+                        }
+                    }
+                }
+                food[X]=fX;
+                food[Y]=fY;
+                foodPresent=true;
+            }
+        }
+        function showFood() {
+            foodPart.style.display="block";
+        }
+        function hideFood() {
+            foodPart.style.display="none";
+        }
+        function getSnakePart() {
+            var borderThickness=1;
+            var part=document.createElement("DIV");
+            part.setAttribute("class", "sp");
+            part.style.zIndex=2;
+            part.style.width=fieldSize-borderThickness*2;
+            part.style.height=fieldSize-borderThickness*2;
+            part.style.backgroundColor="#000000";
+            part.style.position="absolute";
+            part.style.borderStyle="solid";
+            part.style.borderWidth=borderThickness;
+            part.style.borderColor="#eeeeee";
+            return part;
+        }
+        function getFoodPart() {
+            var borderThickness=1;
+            var part=document.createElement("DIV");
+            part.style.zIndex=2;
+            part.style.width=fieldSize-borderThickness*2;
+            part.style.height=fieldSize-borderThickness*2;
+            part.style.backgroundColor="#ff0000";
+            part.style.position="absolute";
+            part.style.borderStyle="solid";
+            part.style.borderWidth=borderThickness;
+            part.style.borderColor="#eeeeee";
+            part.style.display="none";
+            return part;
+        }
+        document.onkeypress=function(e){
+            var e=window.event || e;
+            if(e.charCode==DIR_UP) {
+                if(snakeDir!=DIR_DOWN) {
+                    snakeDir=DIR_UP;
+                }
+            } else if(e.charCode==DIR_RIGHT) {
+                if(snakeDir!=DIR_LEFT) {
+                    snakeDir=DIR_RIGHT;
+                }
+            } else if(e.charCode==DIR_DOWN) {
+                if(snakeDir!=DIR_UP) {
+                    snakeDir=DIR_DOWN;
+                }
+            } else if(e.charCode==DIR_LEFT) {
+                if(snakeDir!=DIR_RIGHT) {
+                    snakeDir=DIR_LEFT;
+                }
+            }
+        }
+    </script>
+  </head>
+  <body onload="initWindows()" onclick="clicked()">
+      <div id="gamediv">
+
+      </div>
+      <div id="prbg" style="display:none;">
+      </div>
+      <div id="prdiv" align="center" style="display:none;">
+            <a id="promt"> promt text </a>
+      </div>
+      <script type="text/javascript">
+          showPromt("CLICK TO START")
+      </script>
+  </body>
+</html>
